@@ -7,13 +7,22 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 	"unicode"
+
+	"github.com/fatih/color"
+)
+
+var (
+	red    = color.New(color.FgRed).Add(color.Underline)
+	green  = color.New(color.FgGreen).Add(color.Bold)
+	orange = color.New(color.FgHiWhite, color.BgBlack).Add(color.Bold)
+	blue   = color.New(color.FgBlue)
+	yellow = color.New(color.FgYellow).Add(color.Italic)
 )
 
 func isOnlyWhitespace(s string) bool {
@@ -45,7 +54,7 @@ func evaluateCode(name string, std string) {
 	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
 		err = os.Mkdir(tempDir, 0755)
 		if err != nil {
-			fmt.Println("\033[31mError creating .temp directory:\033[0m", err)
+			red.Println("Error creating .temp directory:", err)
 			return
 		}
 	}
@@ -55,14 +64,14 @@ func evaluateCode(name string, std string) {
 	compileCmd := exec.Command("g++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std)
 	var compileErr bytes.Buffer
 	compileCmd.Stderr = &compileErr
-	fmt.Println("Using", std, "standard to compile.")
+	blue.Println("Using", std, "standard to compile.")
 	startCompileTime := time.Now()
 	err := compileCmd.Run()
 	compileDuration := time.Since(startCompileTime)
-	fmt.Println("Took", compileDuration, "to compile.")
+	blue.Println("Took", compileDuration, "to compile.")
 
 	if err != nil {
-		fmt.Println("\033[31mCompilation Error:\033[0m", compileErr.String())
+		red.Println("Compilation Error:", compileErr.String())
 		return
 	}
 
@@ -71,23 +80,23 @@ func evaluateCode(name string, std string) {
 
 	inputData, err := os.ReadFile(inputFile)
 	if err != nil {
-		fmt.Println("\033[31mError reading input file:\033[0m", err)
+		red.Println("Error reading input file:", err)
 		return
 	}
 
 	expectedOutput, err := os.ReadFile(outputFile)
 	if err != nil {
-		fmt.Println("\033[31mError reading output file:\033[0m", err)
+		red.Println("Error reading output file:", err)
 		return
 	}
 
 	if isOnlyWhitespace(string(inputData)) {
-		fmt.Println("Please fill your input testcases, and rerun")
+		yellow.Println("Please fill your input testcases, and rerun")
 		return
 	}
 
 	if isOnlyWhitespace(string(expectedOutput)) {
-		fmt.Println("Please fill your expected outputs, and rerun")
+		yellow.Println("Please fill your expected outputs, and rerun")
 		return
 	}
 
@@ -102,7 +111,7 @@ func evaluateCode(name string, std string) {
 	start := time.Now()
 	err = cmd.Start()
 	if err != nil {
-		fmt.Println("\033[31mRuntime Error:\033[0m", err)
+		red.Println("Runtime Error:", err)
 		return
 	}
 
@@ -112,93 +121,96 @@ func evaluateCode(name string, std string) {
 	}()
 	var runtimeDuration time.Duration
 	select {
-	case <-time.After(45 * time.Second):
-		fmt.Println("\033[33mWARNING: Your code took a long time to execute. \033[0m")
+	case <-time.After(60 * time.Second):
+		red.Println("WARNING: Your code took a long time to execute. ")
 		_ = cmd.Process.Kill()
 		return
 	case err := <-done:
 		runtimeDuration = time.Since(start)
 		if err != nil {
-			fmt.Println("\033[31mRuntime Error:\033[0m", stderr.String())
-			fmt.Println("Still checking for correctness of the code")
+			red.Println("Runtime Error:", stderr.String())
+			yellow.Println("Still checking for correctness of the code")
 		}
 	}
 
 	actualOutput := strings.Split(stdout.String(), "\n")
 	expectedLines := strings.Split(string(expectedOutput), "\n")
 
-	fmt.Println("Your actual output: ")
-	fmt.Println(actualOutput)
+	blue.Println("\nYour actual output: ")
+	yellow.Println(actualOutput)
 
 	mismatch := false
 	for i := 0; i < len(expectedLines); i++ {
 		if i >= len(actualOutput) || strings.TrimSpace(actualOutput[i]) != strings.TrimSpace(expectedLines[i]) {
-			if i < len(actualOutput) {
-				fmt.Printf("\033[31mMismatch at line %d:\033[0m\nExpected: %s\nActual: %s\n",
-					i+1, expectedLines[i], actualOutput[i])
-			} else {
-				fmt.Printf("\033[31mMismatch at line %d:\033[0m\nExpected: %s\nActual: <no output>\n",
-					i+1, expectedLines[i])
+			if !mismatch {
+				red.Println("\nMismatches:")
 			}
 			mismatch = true
+			if i < len(actualOutput) {
+				yellow.Printf("Mismatch at line %d:\n", i+1)
+				orange.Printf("Expected: %s\nActual: %s\n", expectedLines[i], actualOutput[i])
+			} else {
+				yellow.Printf("Mismatch at line %d:\n", i+1)
+				orange.Printf("Expected: %s\nActual: <no output>\n", expectedLines[i])
+			}
 		}
 	}
 
-	fmt.Println("\033[33mOK\033[0m")
-	fmt.Println("Took", runtimeDuration)
+	blue.Println("\nOK")
+	blue.Println("Took", runtimeDuration)
 
 	if !mismatch {
-		fmt.Println("\033[32mSuccess: Output matches expected result!\033[0m")
+		green.Println("Success: Output matches expected result!")
 	}
 
 	err = os.Remove(outputBinary)
 	if err != nil {
-		fmt.Println("\033[31mError removing binary:\033[0m", err)
+		red.Println("Error removing binary:", err)
 	}
 
 }
 
 func genCode(problemName *string, cppTemplate *string) {
 
-	fmt.Println("Generating files...")
+	blue.Println("Generating files...")
 	if *problemName == "" {
-		fmt.Println("You must provide a problem name")
+		yellow.Println("You must provide a problem name")
 		return
 	}
 	file, err := os.Create(*problemName + ".cpp")
 	if err != nil {
-		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+		red.Printf("Failed to create problem file: %s\n", err.Error())
 	}
 
 	file1, err := os.Create(*problemName + "-out.txt")
 	if err != nil {
-		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+		red.Printf("Failed to create problem file: %s\n", err.Error())
 	}
 
 	file2, err := os.Create(*problemName + "-in.txt")
 	if err != nil {
-		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+		red.Printf("Failed to create problem file: %s\n", err.Error())
 	}
 
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
-			fmt.Println("Failed to close problem file: " + err.Error())
+			yellow.Println("Failed to close problem file: " + err.Error())
 		}
 		err = file1.Close()
 		if err != nil {
-			fmt.Printf("Failed to close problem file: %s\n", err.Error())
+			yellow.Printf("Failed to close problem file: %s\n", err.Error())
 		}
 		err = file2.Close()
 		if err != nil {
-			fmt.Println("Failed to close problem file: " + err.Error())
+			yellow.Println("Failed to close problem file: " + err.Error())
 		}
 	}(file)
 	_, err = file.WriteString(string(*cppTemplate))
 	if err != nil {
 		fmt.Println(err.Error())
 	}
-	fmt.Println("Done.")
+	green.Println("Done.")
 }
 
 func main() {
@@ -212,34 +224,34 @@ func main() {
 	if *isGenStage {
 		execPath, err := os.Executable()
 		if err != nil {
-			fmt.Println("\033[31mError getting executable:\033[0m", err)
+			red.Println("Error getting executable:", err)
 		}
 		execDirPath := filepath.Dir(execPath)
 		filePath := filepath.Join(execDirPath, "templates", *templateName+".cpp")
 		content, err := os.ReadFile(filePath)
 		if err != nil {
-			log.Println("Error readin the template", templateName)
-			println("\033[31mError reading template file:\033[0m", err)
+			red.Println("Error readin the template", templateName)
+			red.Println("Error:", err)
 			return
 		}
 		cppTemplate := string(content)
 		if fileExists(*problemName+".cpp") || fileExists(*problemName+"-out.txt") || fileExists(*problemName+"-in.txt") {
-			fmt.Println("the files were already generated for", *problemName)
+			yellow.Println("the files were already generated for", *problemName)
 			return
 		}
 
 		genCode(problemName, &cppTemplate)
 	} else if *isTester {
 		if *problemName == "" {
-			fmt.Println("You must provide a problem name")
+			yellow.Println("You must provide a problem name")
 			return
 		}
-		fmt.Println("Testing ...")
+		blue.Println("Testing ...")
 
 		evaluateCode(*problemName, *std)
 
-		fmt.Println("Test complete")
+		blue.Println("Test complete")
 	} else {
-		fmt.Println("No commands specified")
+		yellow.Println("No commands specified")
 	}
 }
