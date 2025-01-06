@@ -131,9 +131,7 @@ func main() {
 	isGenStage := flag.Bool("gen-problem", false, "a bool")
 	isTester := flag.Bool("test", false, "a bool")
 	flag.Parse()
-	cppTemplate := `
-	#include <bits/stdc++.h>
-
+	cppTemplate := `#include <bits/stdc++.h>
 using namespace std;
 
 template<typename A, typename B> ostream& operator<<(ostream &os, const pair<A, B> &p) { return os << '(' << p.first << ", " << p.second << ')'; }
