@@ -15,6 +15,17 @@ import (
 )
 import "fmt"
 
+func isOnlyWhitespace(s string) bool {
+	// Iterate over each rune in the string
+	for _, r := range s {
+		if !unicode.IsSpace(r) {
+			return false // Found a non-whitespace character
+		}
+	}
+	return true // All characters are whitespace
+}
+
+
 func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
 
@@ -29,7 +40,7 @@ func fileExists(filePath string) bool {
 	return false
 }
 
-func evaluateCode(name string) {
+func evaluateCode(name string, std string) {
 	// Step 1: Create .temp directory
 	tempDir := ".temp"
 	if _, err := os.Stat(tempDir); os.IsNotExist(err) {
@@ -42,32 +53,41 @@ func evaluateCode(name string) {
 
 	// Step 2: Compile the C++ code to the .temp directory
 	outputBinary := filepath.Join(tempDir, name)
-	compileCmd := exec.Command("clang++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary)
+	compileCmd := exec.Command("clang++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std)
 	var compileErr bytes.Buffer
 	compileCmd.Stderr = &compileErr
+	startCompileTime := time.Now()
 	err := compileCmd.Run()
-
-	// If compilation fails
+	compileDuration := time.Since(startCompileTime)
+	
 	if err != nil {
 		fmt.Println("\033[31mCompilation Error:\033[0m", compileErr.String())
 		return
 	}
 
-	// Step 3: Execute the compiled program with input and compare output
+
 	inputFile := fmt.Sprintf("%s-in.txt", name)
 	outputFile := fmt.Sprintf("%s-out.txt", name)
 
-	// Read input from the input file
 	inputData, err := os.ReadFile(inputFile)
 	if err != nil {
 		fmt.Println("\033[31mError reading input file:\033[0m", err)
 		return
 	}
 
-	// Read expected output from the output file
 	expectedOutput, err := os.ReadFile(outputFile)
 	if err != nil {
 		fmt.Println("\033[31mError reading output file:\033[0m", err)
+		return
+	}
+
+	if isOnlyWhitespace(inputData) {
+		fmt.Println("Please fill your input testcases, and rerun")
+		return
+	}
+
+	if isOnlyWhitespace(expectedOutput) {
+		fmt.Println("Please fill your expected outputs, and rerun")
 		return
 	}
 
@@ -94,22 +114,26 @@ func evaluateCode(name string) {
 	}()
 
 	select {
-	case <-time.After(4 * time.Second):
+	case <-time.After(45 * time.Second):
 		// Time limit exceeded, but we'll let the program continue
-		fmt.Println("\033[33mWARNING: Time Limit Exceeded (TLE), still checking for correctness...\033[0m")
+		fmt.Println("\033[33mWARNING: Your code took a long time to execute. \033[0m")
 		_ = cmd.Process.Kill()
 		return
 	case err := <-done:
+		runtimeDuration := time.Since(start)
 		// If there's a runtime error
 		if err != nil {
 			fmt.Println("\033[31mRuntime Error:\033[0m", stderr.String())
-			return
+			fmt.Println("Still checking for correctness of the code")
 		}
 	}
 
 	// Step 5: Compare output line by line
 	actualOutput := strings.Split(stdout.String(), "\n")
 	expectedLines := strings.Split(string(expectedOutput), "\n")
+
+	fmt.Println("Your actual output: ")
+	fmt.Println(actualOutput)
 
 	mismatch := false
 	for i := 0; i < len(expectedLines); i++ {
@@ -125,14 +149,13 @@ func evaluateCode(name string) {
 		}
 	}
 
-	fmt.Println("\033[33mOK\033[0m", time.Since(start))
-
-	// If output doesn't match, report a mismatch
+	fmt.Println("\033[33mOK\033[0m")
+	fmt.Println("Took", runtimeDuration)
+	
 	if !mismatch {
 		fmt.Println("\033[32mSuccess: Output matches expected result!\033[0m")
 	}
 
-	// Step 6: Cleanup - remove the compiled binary
 	err = os.Remove(outputBinary)
 	if err != nil {
 		fmt.Println("\033[31mError removing binary:\033[0m", err)
@@ -177,6 +200,7 @@ func main() {
 	isGenStage := flag.Bool("new", false, "a bool")
 	isTester := flag.Bool("test", false, "a bool")
 	templateName := flag.String("t", "default", "a template name")
+	std := flag.String("std", "c++20", "C++ standard, c++17, c++20, c++23")
 	flag.Parse()
 
 	if *isGenStage == true {
@@ -207,7 +231,7 @@ func main() {
 		}
 		fmt.Println("Testing ...")
 
-		evaluateCode(*problemName)
+		evaluateCode(*problemName, std)
 
 		fmt.Println("Test complete")
 	}
