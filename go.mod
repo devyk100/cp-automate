@@ -1,3 +1,3 @@
-module automate
+module mochi
 
 go 1.22

@@ -6,14 +6,15 @@ package main
 import (
 	"bytes"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+	"unicode"
 )
-import "fmt"
 
 func isOnlyWhitespace(s string) bool {
 	for _, r := range s {
@@ -23,7 +24,6 @@ func isOnlyWhitespace(s string) bool {
 	}
 	return true
 }
-
 
 func fileExists(filePath string) bool {
 	_, err := os.Stat(filePath)
@@ -52,18 +52,19 @@ func evaluateCode(name string, std string) {
 
 	// Step 2: Compile the C++ code to the .temp directory
 	outputBinary := filepath.Join(tempDir, name)
-	compileCmd := exec.Command("clang++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std)
+	compileCmd := exec.Command("g++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std)
 	var compileErr bytes.Buffer
 	compileCmd.Stderr = &compileErr
+	fmt.Println("Using", std, "standard to compile.")
 	startCompileTime := time.Now()
 	err := compileCmd.Run()
 	compileDuration := time.Since(startCompileTime)
-	
+	fmt.Println("Took", compileDuration, "to compile.")
+
 	if err != nil {
 		fmt.Println("\033[31mCompilation Error:\033[0m", compileErr.String())
 		return
 	}
-
 
 	inputFile := fmt.Sprintf("%s-in.txt", name)
 	outputFile := fmt.Sprintf("%s-out.txt", name)
@@ -80,12 +81,12 @@ func evaluateCode(name string, std string) {
 		return
 	}
 
-	if isOnlyWhitespace(inputData) {
+	if isOnlyWhitespace(string(inputData)) {
 		fmt.Println("Please fill your input testcases, and rerun")
 		return
 	}
 
-	if isOnlyWhitespace(expectedOutput) {
+	if isOnlyWhitespace(string(expectedOutput)) {
 		fmt.Println("Please fill your expected outputs, and rerun")
 		return
 	}
@@ -109,14 +110,14 @@ func evaluateCode(name string, std string) {
 	go func() {
 		done <- cmd.Wait()
 	}()
-
+	var runtimeDuration time.Duration
 	select {
 	case <-time.After(45 * time.Second):
 		fmt.Println("\033[33mWARNING: Your code took a long time to execute. \033[0m")
 		_ = cmd.Process.Kill()
 		return
 	case err := <-done:
-		runtimeDuration := time.Since(start)
+		runtimeDuration = time.Since(start)
 		if err != nil {
 			fmt.Println("\033[31mRuntime Error:\033[0m", stderr.String())
 			fmt.Println("Still checking for correctness of the code")
@@ -165,11 +166,20 @@ func genCode(problemName *string, cppTemplate *string) {
 		return
 	}
 	file, err := os.Create(*problemName + ".cpp")
+	if err != nil {
+		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+	}
+
 	file1, err := os.Create(*problemName + "-out.txt")
+	if err != nil {
+		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+	}
+
 	file2, err := os.Create(*problemName + "-in.txt")
 	if err != nil {
 		fmt.Printf("Failed to create problem file: %s\n", err.Error())
 	}
+
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
@@ -185,23 +195,24 @@ func genCode(problemName *string, cppTemplate *string) {
 		}
 	}(file)
 	_, err = file.WriteString(string(*cppTemplate))
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	fmt.Println("Done.")
 }
 
 func main() {
-	//wordPtr := flag.String("word", "foo", "a string")
 	problemName := flag.String("name", "", "a problem name")
 	isGenStage := flag.Bool("new", false, "a bool")
 	isTester := flag.Bool("test", false, "a bool")
-	templateName := flag.String("t", "default", "a template name")
+	templateName := flag.String("template", "default", "a template name")
 	std := flag.String("std", "c++20", "C++ standard, c++17, c++20, c++23")
 	flag.Parse()
 
-	if *isGenStage == true {
+	if *isGenStage {
 		execPath, err := os.Executable()
 		if err != nil {
 			fmt.Println("\033[31mError getting executable:\033[0m", err)
-
 		}
 		execDirPath := filepath.Dir(execPath)
 		filePath := filepath.Join(execDirPath, "templates", *templateName+".cpp")
@@ -218,15 +229,17 @@ func main() {
 		}
 
 		genCode(problemName, &cppTemplate)
-	} else if *isTester == true {
+	} else if *isTester {
 		if *problemName == "" {
 			fmt.Println("You must provide a problem name")
 			return
 		}
 		fmt.Println("Testing ...")
 
-		evaluateCode(*problemName, std)
+		evaluateCode(*problemName, *std)
 
 		fmt.Println("Test complete")
+	} else {
+		fmt.Println("No commands specified")
 	}
 }
