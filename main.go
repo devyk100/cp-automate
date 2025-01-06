@@ -16,13 +16,12 @@ import (
 import "fmt"
 
 func isOnlyWhitespace(s string) bool {
-	// Iterate over each rune in the string
 	for _, r := range s {
 		if !unicode.IsSpace(r) {
-			return false // Found a non-whitespace character
+			return false
 		}
 	}
-	return true // All characters are whitespace
+	return true
 }
 
 
@@ -99,7 +98,6 @@ func evaluateCode(name string, std string) {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
-	// Start timing the execution
 	start := time.Now()
 	err = cmd.Start()
 	if err != nil {
@@ -107,7 +105,6 @@ func evaluateCode(name string, std string) {
 		return
 	}
 
-	// Run with timeout
 	done := make(chan error, 1)
 	go func() {
 		done <- cmd.Wait()
@@ -115,20 +112,17 @@ func evaluateCode(name string, std string) {
 
 	select {
 	case <-time.After(45 * time.Second):
-		// Time limit exceeded, but we'll let the program continue
 		fmt.Println("\033[33mWARNING: Your code took a long time to execute. \033[0m")
 		_ = cmd.Process.Kill()
 		return
 	case err := <-done:
 		runtimeDuration := time.Since(start)
-		// If there's a runtime error
 		if err != nil {
 			fmt.Println("\033[31mRuntime Error:\033[0m", stderr.String())
 			fmt.Println("Still checking for correctness of the code")
 		}
 	}
 
-	// Step 5: Compare output line by line
 	actualOutput := strings.Split(stdout.String(), "\n")
 	expectedLines := strings.Split(string(expectedOutput), "\n")
 
@@ -151,7 +145,7 @@ func evaluateCode(name string, std string) {
 
 	fmt.Println("\033[33mOK\033[0m")
 	fmt.Println("Took", runtimeDuration)
-	
+
 	if !mismatch {
 		fmt.Println("\033[32mSuccess: Output matches expected result!\033[0m")
 	}
