@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"flag"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,6 +14,20 @@ import (
 	"time"
 )
 import "fmt"
+
+func fileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+
+	if err == nil {
+		return true
+	}
+
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	return false
+}
 
 func evaluateCode(name string) {
 	// Step 1: Create .temp directory
@@ -27,7 +42,7 @@ func evaluateCode(name string) {
 
 	// Step 2: Compile the C++ code to the .temp directory
 	outputBinary := filepath.Join(tempDir, name)
-	compileCmd := exec.Command("g++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary)
+	compileCmd := exec.Command("clang++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary)
 	var compileErr bytes.Buffer
 	compileCmd.Stderr = &compileErr
 	err := compileCmd.Run()
@@ -125,81 +140,66 @@ func evaluateCode(name string) {
 
 }
 
+func genCode(problemName *string, cppTemplate *string) {
+
+	fmt.Println("Generating files...")
+	if *problemName == "" {
+		fmt.Println("You must provide a problem name")
+		return
+	}
+	file, err := os.Create(*problemName + ".cpp")
+	file1, err := os.Create(*problemName + "-out.txt")
+	file2, err := os.Create(*problemName + "-in.txt")
+	if err != nil {
+		fmt.Printf("Failed to create problem file: %s\n", err.Error())
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("Failed to close problem file: " + err.Error())
+		}
+		err = file1.Close()
+		if err != nil {
+			fmt.Printf("Failed to close problem file: %s\n", err.Error())
+		}
+		err = file2.Close()
+		if err != nil {
+			fmt.Println("Failed to close problem file: " + err.Error())
+		}
+	}(file)
+	_, err = file.WriteString(string(*cppTemplate))
+	fmt.Println("Done.")
+}
+
 func main() {
 	//wordPtr := flag.String("word", "foo", "a string")
 	problemName := flag.String("name", "", "a problem name")
-	isGenStage := flag.Bool("gen-problem", false, "a bool")
+	isGenStage := flag.Bool("new", false, "a bool")
 	isTester := flag.Bool("test", false, "a bool")
+	templateName := flag.String("t", "default", "a template name")
 	flag.Parse()
-	cppTemplate := `#include <bits/stdc++.h>
-using namespace std;
 
-template<typename A, typename B> ostream& operator<<(ostream &os, const pair<A, B> &p) { return os << '(' << p.first << ", " << p.second << ')'; }
-template<typename T_container, typename T = typename enable_if<!is_same<T_container, string>::value, typename T_container::value_type>::type> ostream& operator<<(ostream &os, const T_container &v) { os << '{'; string sep; for (const T &x : v) os << sep << x, sep = ", "; return os << '}'; }
-void dbg_out() { cerr << endl; }
-template<typename Head, typename... Tail> void dbg_out(Head H, Tail... T) { cerr << ' ' << H; dbg_out(T...); }
-#ifdef LOCAL
-#define dbg(...) cerr << "(" << #__VA_ARGS__ << "):", dbg_out(__VA_ARGS__)
-#else
-#define dbg(...)
-#endif
-
-#define ar array
-#define ll long long
-#define ld long double
-#define sza(x) ((int)x.size())
-#define all(a) (a).begin(), (a).end()
-
-const int MAX_N = 1e5 + 5;
-const ll MOD = 1e9 + 7;
-const ll INF = 1e9;
-const ld EPS = 1e-9;
-
-
-
-void solve() {
-    
-}
-
-int main() {
-    ios_base::sync_with_stdio(0);
-    cin.tie(0); cout.tie(0);
-    int tc = 1;
-    // cin >> tc;
-    for (int t = 1; t <= tc; t++) {
-        // cout << "Case #" << t << ": ";
-        solve();
-    }
-}
-`
 	if *isGenStage == true {
-		fmt.Println("Generating files...")
-		if *problemName == "" {
-			fmt.Println("You must provide a problem name")
+		execPath, err := os.Executable()
+		if err != nil {
+			fmt.Println("\033[31mError getting executable:\033[0m", err)
+
+		}
+		execDirPath := filepath.Dir(execPath)
+		filePath := filepath.Join(execDirPath, "templates", *templateName+".cpp")
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			log.Println("Error readin the template", templateName)
+			println("\033[31mError reading template file:\033[0m", err)
 			return
 		}
-		file, err := os.Create(*problemName + ".cpp")
-		file1, err := os.Create(*problemName + "-out.txt")
-		file2, err := os.Create(*problemName + "-in.txt")
-		if err != nil {
-			fmt.Printf("Failed to create problem file: %s\n", err.Error())
+		cppTemplate := string(content)
+		if fileExists(*problemName+".cpp") || fileExists(*problemName+"-out.txt") || fileExists(*problemName+"-in.txt") {
+			fmt.Println("the files were already generated for", *problemName)
+			return
 		}
-		defer func(file *os.File) {
-			err := file.Close()
-			if err != nil {
-				fmt.Println("Failed to close problem file: " + err.Error())
-			}
-			err = file1.Close()
-			if err != nil {
-				fmt.Printf("Failed to close problem file: %s\n", err.Error())
-			}
-			err = file2.Close()
-			if err != nil {
-				fmt.Println("Failed to close problem file: " + err.Error())
-			}
-		}(file)
-		_, err = file.WriteString(cppTemplate)
-		fmt.Println("Done.")
+
+		genCode(problemName, &cppTemplate)
 	} else if *isTester == true {
 		if *problemName == "" {
 			fmt.Println("You must provide a problem name")
