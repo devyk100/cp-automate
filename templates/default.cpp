@@ -13,8 +13,8 @@ template<typename Head, typename... Tail> void dbg_out(Head H, Tail... T) { cerr
 #define sza(x) ((int)x.size())
 #define all(a) (a).begin(), (a).end()
 
-#ifndef YASH_DEBUG
-#define debug(x) cerr << __LINE__ << ": " << #x << " "; __print(x); cerr << end;
+#ifdef YASH_DEBUG
+#define debug(x) cerr << __LINE__ << ": " << #x << " "; __print(x); cerr << endl;
 #else
 #define debug(x)
 #endif
@@ -64,7 +64,7 @@ void solve() {
 }
 
 int main() {
-#ifndef YASH_DEBUG
+#ifdef YASH_DEBUG
     freopen("Debug.txt", "w", stderr);
     cerr << __FILE__ << endl;
 #endif
