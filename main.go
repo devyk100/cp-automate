@@ -61,7 +61,7 @@ func evaluateCode(name string, std string) {
 
 	// Step 2: Compile the C++ code to the .temp directory
 	outputBinary := filepath.Join(tempDir, name)
-	compileCmd := exec.Command("g++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std)
+	compileCmd := exec.Command("g++", fmt.Sprintf("%s.cpp", name), "-o", outputBinary, "-std="+std, "-DYASH_DEBUG")
 	var compileErr bytes.Buffer
 	compileCmd.Stderr = &compileErr
 	blue.Println("Using", std, "standard to compile.")
