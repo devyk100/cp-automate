@@ -14,29 +14,42 @@ template<typename Head, typename... Tail> void dbg_out(Head H, Tail... T) { cerr
 #define all(a) (a).begin(), (a).end()
 
 #ifndef YASH_DEBUG
-#define debug(x) cerr << __LINE__ << ": " << #x << " " << __print(x); cerr << end;
+#define debug(x) cerr << __LINE__ << ": " << #x << " "; __print(x); cerr << end;
 #else
 #define debug(x)
 #endif
  
-template<typename T>
-void __print(const T& val) {
-    if constexpr (std::is_same_v<T, std::vector<typename T::value_type>> ||
-                  std::is_same_v<T, std::set<typename T::value_type>>) {
-        cerr << "[ ";
-        for (const auto& elem : val) cerr << elem << " ";
-        cerr << "]";
-    } else if constexpr (std::is_same_v<T, std::map<typename T::key_type, typename T::mapped_type>> ||
-                         std::is_same_v<T, std::unordered_map<typename T::key_type, typename T::mapped_type>>) {
-        cerr << "[ ";
-        for (const auto& [key, value] : val) {
-            cerr << "{ " << key << "," << value << " }, ";
-        }
-        cerr << "]";
-    } else if constexpr (std::is_arithmetic_v<T> || std::is_same_v<T, char> || std::is_same_v<T, std::string>) {
-        cerr << val;
-    }
+template<typename T> void __print(vector<T> vec) {
+    cerr << "[ ";
+    for(auto it: vec) cerr << it << " ";
+    cerr << "]";
 }
+template<typename T> void __print(set<T> vec) {
+    cerr << "[ ";
+    for(auto it: vec) cerr << it << " ";
+    cerr << "]";
+}
+template<typename T, typename T2> void __print(map<T, T2> m){
+    cerr << "[ ";
+    for(auto it: m){
+        cerr << "{ " << it.first << "," <<it.second<<" }, ";
+    }
+    cerr << "]";
+}
+
+template<typename T, typename T2> void __print(unordered_map<T, T2> m){
+    cerr << "[ ";
+    for(auto it: m){
+        cerr << "{ " << it.first << "," <<it.second<<" }, ";
+    }
+    cerr << "]";
+}
+void __print(ll a) {cerr << a;}
+void __print(ld a) {cerr << a;}
+void __print(char a) {cerr << a;}
+void __print(string a) {cerr << a;}
+void __print(int a) {cerr << a;}
+void __print(float a){cerr << a;}
 
 
 const int MAX_N = 1e5 + 5;
