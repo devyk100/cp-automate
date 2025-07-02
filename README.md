@@ -1,6 +1,6 @@
 # Mochi: C++ Problem Generator and Tester
 
-Mochi is a Go program that facilitates the generation and testing of C++ problem files. It allows users to create new problem files from templates and test C++ code against specified input and output files.
+Mochi is a command-line tool written in Go for generating and testing C++ problem files. It streamlines the process of creating problem files from templates and automates the testing of C++ code against predefined inputs and outputs.
 
 ## Requirements
 
@@ -11,7 +11,31 @@ Mochi is a Go program that facilitates the generation and testing of C++ problem
   go get github.com/fatih/color
   ```
 
-## Usage
+## Installation
+
+To install Mochi on a Linux system, you can use the provided `install.sh` script. This script will compile the Go project, move the executable and templates to the installation directory, and add the directory to your PATH.
+
+### Steps to Install
+
+1. Run the `install.sh` script:
+   ```bash
+   ./install.sh
+   ```
+
+2. Follow the on-screen instructions to complete the installation.
+
+3. Reload your terminal or run the following command to update your PATH:
+   ```bash
+   export PATH="$PATH:$HOME/cp-automate"
+   ```
+
+4. Verify the installation by running:
+   ```bash
+   mochi -h
+   ```
+
+If the installation is successful, you should see the help message for Mochi.
+
 
 First, add the executable to your PATH to use it conveniently as `mochi`. You can then run the program with the following command-line flags:
 
